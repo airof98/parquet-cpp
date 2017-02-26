@@ -24,4 +24,7 @@ if (PARQUET_BUILD_EXECUTABLES)
 
   add_executable(parquet-scan parquet-scan.cc)
   target_link_libraries(parquet-scan parquet_static)
+
+  add_executable(parquet_csv parquet_csv.cc)
+  target_link_libraries(parquet_csv parquet_static)
 endif()

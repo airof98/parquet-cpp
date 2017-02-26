@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
+#include <boost/algorithm/string/replace.hpp>
 
 #include "parquet/column/reader.h"
 #include "parquet/exception.h"
@@ -166,14 +167,24 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
     char buffer[25];
 
     if (!NextValue(&val, &is_null)) { throw ParquetException("No more values buffered"); }
-
-    if (is_null) {
-      std::string null_fmt = format_fwf<ByteArrayType>(width);
-      snprintf(buffer, sizeof(buffer), null_fmt.c_str(), "NULL");
+    if (width == -1) {
+      if (is_null) {
+        snprintf(buffer, sizeof(buffer), "%s", "NULL");        
+      } else {
+        FormatValue(&val, buffer, sizeof(buffer), width);
+      }
     } else {
-      FormatValue(&val, buffer, sizeof(buffer), width);
+      if (is_null) {
+        std::string null_fmt = format_fwf<ByteArrayType>(width);
+        snprintf(buffer, sizeof(buffer), null_fmt.c_str(), "NULL");
+      } else {
+        FormatValue(&val, buffer, sizeof(buffer), width);
+      }
     }
     out << buffer;
+    if (width == -1) {
+      out << ",";
+    }
   }
 
  private:
@@ -188,32 +199,56 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
 template <typename DType>
 inline void TypedScanner<DType>::FormatValue(
     void* val, char* buffer, int bufsize, int width) {
-  std::string fmt = format_fwf<DType>(width);
-  snprintf(buffer, bufsize, fmt.c_str(), *reinterpret_cast<T*>(val));
+  std::string fmt;
+  std::string result = (char*)reinterpret_cast<T*>(val);
+  if (width == -1) {
+    fmt = format_fwf<DType>();
+    result = boost::replace_all_copy(result, ",", "&#44;");
+  } else {
+    fmt = format_fwf<DType>(width);    
+  }
+  snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
 }
 
 template <>
 inline void TypedScanner<Int96Type>::FormatValue(
     void* val, char* buffer, int bufsize, int width) {
-  std::string fmt = format_fwf<Int96Type>(width);
+  std::string fmt;
   std::string result = Int96ToString(*reinterpret_cast<Int96*>(val));
+  if (width == -1) {
+    fmt = format_fwf<Int96Type>();
+  } else {
+    fmt = format_fwf<Int96Type>(width);
+  }
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
 }
 
 template <>
 inline void TypedScanner<ByteArrayType>::FormatValue(
     void* val, char* buffer, int bufsize, int width) {
-  std::string fmt = format_fwf<ByteArrayType>(width);
+  std::string fmt;
   std::string result = ByteArrayToString(*reinterpret_cast<ByteArray*>(val));
+  if (width == -1) {
+    fmt = format_fwf<ByteArrayType>();
+    result = boost::replace_all_copy(result, ",", "&#44;");
+  } else {
+    fmt = format_fwf<ByteArrayType>(width);
+  }
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
 }
 
 template <>
 inline void TypedScanner<FLBAType>::FormatValue(
     void* val, char* buffer, int bufsize, int width) {
-  std::string fmt = format_fwf<FLBAType>(width);
+  std::string fmt;
   std::string result = FixedLenByteArrayToString(
       *reinterpret_cast<FixedLenByteArray*>(val), descr()->type_length());
+  if (width == -1) {
+    fmt = format_fwf<FLBAType>();
+    result = boost::replace_all_copy(result, ",", "&#44;");
+  } else {
+    fmt = format_fwf<FLBAType>(width);
+  }
   snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
 }
 

@@ -269,6 +269,13 @@ inline std::string format_fwf(int width) {
   return ss.str();
 }
 
+template <typename Type>
+inline std::string format_fwf() {
+  std::stringstream ss;
+  ss << "%" << type_traits<Type::type_num>::printf_code;
+  return ss.str();
+}
+
 std::string CompressionToString(Compression::type t);
 
 std::string EncodingToString(Encoding::type t);

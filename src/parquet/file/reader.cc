@@ -248,4 +248,54 @@ std::shared_ptr<FileMetaData> ReadMetaData(
   return ParquetFileReader::Open(source)->metadata();
 }
 
+void ParquetFileReader::CSVPrint(
+    std::ostream& stream, std::list<int> selected_columns, bool print_values) {
+  const FileMetaData* file_metadata = metadata().get();
+  stream << "#";
+  for (auto i : selected_columns) {
+    const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
+    stream << descr->name() << ",";
+  }
+  stream << std::endl;
+  
+  for (int r = 0; r < file_metadata->num_row_groups(); ++r) {
+    auto group_reader = RowGroup(r);
+    static constexpr int bufsize = 25;
+    char buffer[bufsize];
+
+    // Create readers for selected columns and print contents
+    vector<std::shared_ptr<Scanner>> scanners(selected_columns.size(), NULL);
+    int j = 0;
+    for (auto i : selected_columns) {
+      std::shared_ptr<ColumnReader> col_reader = group_reader->Column(i);
+
+      std::stringstream ss;
+      ss << "%-" << COL_WIDTH << "s";
+      std::string fmt = ss.str();
+
+      snprintf(buffer, bufsize, fmt.c_str(),
+          file_metadata->schema()->Column(i)->name().c_str());
+      stream << buffer;
+
+      // This is OK in this method as long as the RowGroupReader does not get
+      // deleted
+      scanners[j++] = Scanner::Make(col_reader);
+    }
+    stream << "\n";
+
+    bool hasRow;
+    do {
+      hasRow = false;
+      for (auto scanner : scanners) {
+        if (scanner->HasNext()) {
+          hasRow = true;
+          scanner->PrintNext(stream, -1);
+        }
+      }
+      stream << "\n";
+    } while (hasRow);
+  }
+}
+
+
 }  // namespace parquet

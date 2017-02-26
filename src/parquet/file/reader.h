@@ -113,6 +113,9 @@ class PARQUET_EXPORT ParquetFileReader {
 
   void DebugPrint(
       std::ostream& stream, std::list<int> selected_columns, bool print_values = true);
+  
+  void CSVPrint(
+      std::ostream& stream, std::list<int> selected_columns, bool print_values = true);
 
  private:
   // Holds a pointer to an instance of Contents implementation
